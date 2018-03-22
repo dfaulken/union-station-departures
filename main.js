@@ -48,6 +48,8 @@ function convertToDisplayFormat(departure, routes){
 
 
 $(document).ready(function(){
+  setTimeout(function(){ window.location.reload(); }, 30000);
+
   var routes = {};
 
   $.ajax({
