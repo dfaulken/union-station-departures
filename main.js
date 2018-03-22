@@ -56,7 +56,7 @@ $(document).ready(function(){
     success: function(response){
       for(var i = 0; i < response.length; i++){
         var route = response[i];
-        routes[route.RouteId] = route.ShortName;
+        routes[route.RouteId] = route.RouteAbbreviation;
       }
     }
   });
