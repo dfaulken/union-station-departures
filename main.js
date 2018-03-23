@@ -1,12 +1,10 @@
 function addDepartureRow(departureData){
   var tr = "<tr>";
-  for(var i = 0; i < departureData.length; i++){
-    var dataPoint = departureData[i];
+  _.each(departureData, function(dataPoint){
     tr += "<td>";
     tr += dataPoint;
     tr += "</td>";
-  }
-  tr += "</tr>";
+  });
   $('table#departures tbody').append(tr);
 }
 
@@ -39,7 +37,7 @@ function timeInterval(edt){
 function convertToDisplayFormat(departure, routes){
   return [
     departure.bayNumber.toString(),
-    routes[departure.route],
+    departure.route,
     departure.headsign,
     departure.edt.format('h:mm a'),
     timeInterval(departure.edt)
@@ -48,6 +46,10 @@ function convertToDisplayFormat(departure, routes){
 
 
 $(document).ready(function(){
+  var allDepartures = [];
+
+  var options= URI(window.location.href).search(true);
+
   setTimeout(function(){ window.location.reload(); }, 30000);
 
   var routes = {};
@@ -56,10 +58,9 @@ $(document).ready(function(){
     url: 'https://bustracker.pvta.com/InfoPoint/rest/routes/getvisibleroutes',
     async: false,
     success: function(response){
-      for(var i = 0; i < response.length; i++){
-        var route = response[i];
+      _.each(response, function(route){
         routes[route.RouteId] = route.RouteAbbreviation;
-      }
+      });
     }
   });
 
@@ -67,8 +68,8 @@ $(document).ready(function(){
   var stopIDs = ['5101', '5102', '5103', '5104', '5105', '5106', '5107', '5108',
     '5109', '5110', '5111', '5112', '5113', '5114', '5115', '5116'];
 
-  for(var h = 0; h < stopIDs.length; h++){
-    var url = 'https://bustracker.pvta.com/InfoPoint/rest/stopdepartures/get/' + stopIDs[h];
+  _.each(stopIDs, function(stopId){
+    var url = 'https://bustracker.pvta.com/InfoPoint/rest/stopdepartures/get/' + stopId;
     $.ajax({
       url: url,
       async: false,
@@ -76,31 +77,34 @@ $(document).ready(function(){
         var stopID = response[0].StopId.toString();
         var bayNumber = $.inArray(stopID, stopIDs) + 1;
         var directions = response[0].RouteDirections;
-        for(var i = 0; i < directions.length; i++){
-          var direction = directions[i];
-          var departures = direction.Departures.sort(function(a, b){
-            return moment(a.EDT) < moment(b.EDT) ? -1 : 1;
-          });
-          for(var j = 0; j < departures.length; j++){
-            var departure = departures[j];
+        _.each(directions, function(direction){
+          var departures = direction.Departures;
+          _.each(departures, function(departure){
             var departureData = {
               bayNumber: bayNumber,
-              route: direction.RouteId,
+              route: routes[direction.RouteId],
               headsign: departure.Trip.InternetServiceDesc,
               edt: moment(departure.EDT),
             };
             if(departureApplies(departureData)){
-              departureDisplayData = convertToDisplayFormat(departureData, routes);
-              addDepartureRow(departureDisplayData);
-              if(!loadingRowDeleted){
-                $('table#departures tr#loading').remove();
-                loadingRowDeleted = true;
-              }
-              break; // only render the first departure per stop/route/direction
+              allDepartures.push(departureData);
             }
-          }
-        }
+          });
+        });
       }
     });
+  });
+  groupedDepartures = _.groupBy(allDepartures, function(departure){
+    return [departure.route, departure.headsign];
+  });
+  var displayDepartures = [];
+  _.each(groupedDepartures, function(departures){
+    displayDepartures.push(_.first(_.sortBy(departures, 'edt')));
+  });
+  // sort
+  _.each(_.map(displayDepartures, convertToDisplayFormat), addDepartureRow);
+  if(!loadingRowDeleted){
+    $('table#departures tr#loading').remove();
+    loadingRowDeleted = true;
   }
 });
