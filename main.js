@@ -37,7 +37,7 @@ function timeInterval(edt){
 function convertToDisplayFormat(departure, routes){
   return [
     departure.bayNumber.toString(),
-    departure.route,
+    departure.routeName,
     departure.headsign,
     departure.edt.format('h:mm a'),
     timeInterval(departure.edt)
@@ -48,7 +48,14 @@ function convertToDisplayFormat(departure, routes){
 $(document).ready(function(){
   var allDepartures = [];
 
-  var options= URI(window.location.href).search(true);
+  var options = URI(window.location.href).search(true);
+  var departureOrder = options.order;
+
+  var validOrders = ['bayNumber', 'routeName', 'routeNumber', 'headsign', 'edt'];
+  if(!_.contains(validOrders, options.order)){
+    departureOrder = 'bayNumber'
+  }
+  var departureOrder = options.order;
 
   setTimeout(function(){ window.location.reload(); }, 30000);
 
@@ -80,9 +87,11 @@ $(document).ready(function(){
         _.each(directions, function(direction){
           var departures = direction.Departures;
           _.each(departures, function(departure){
+            var routeName = routes[direction.RouteId];
             var departureData = {
               bayNumber: bayNumber,
-              route: routes[direction.RouteId],
+              routeName: routeName,
+              routeNumber: parseInt(routeName.replace(/\D+/, '')),
               headsign: departure.Trip.InternetServiceDesc,
               edt: moment(departure.EDT),
             };
@@ -97,11 +106,10 @@ $(document).ready(function(){
   groupedDepartures = _.groupBy(allDepartures, function(departure){
     return [departure.route, departure.headsign];
   });
-  var displayDepartures = [];
-  _.each(groupedDepartures, function(departures){
-    displayDepartures.push(_.first(_.sortBy(departures, 'edt')));
+  var displayDepartures = _.map(groupedDepartures, function(departures){
+    return _.first(_.sortBy(departures, 'edt'));
   });
-  // sort
+  displayDepartures = _.sortBy(displayDepartures, departureOrder);
   _.each(_.map(displayDepartures, convertToDisplayFormat), addDepartureRow);
   if(!loadingRowDeleted){
     $('table#departures tr#loading').remove();
